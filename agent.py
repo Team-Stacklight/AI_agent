@@ -5,34 +5,32 @@ from answer_model import LiveContribution, Summary
 from vertexai import init
 from dotenv import load_dotenv
 from typing import List
-import json 
+import json
 import os
 import re
 
-
-
 load_dotenv()
-credentialsPath = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentialsPath
+credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
 
 init(
-    project="woven-nimbus-461919-j1",  
-    location="us-central1"  
+    project="woven-nimbus-461919-j1",
+    location="us-central1"
 )
 
-modelName = "gemini-2.5-flash"
+model_name = "gemini-2.5-flash"
 
 # The type of answer the model will generate
-modelAnswer = {
+model_answer = {
     "LiveContribution": LiveContribution,
-    "Summary": Summary    
+    "Summary": Summary
 }
 
 # Initialize the model via langchain
-initLLM = ChatVertexAI(
-    model_name=modelName,
+init_llm = ChatVertexAI(
+    model_name=model_name,
     temperature=0.2,
-    max_output_tokens=2000, 
+    max_output_tokens=2000,
 )
 
 """
@@ -48,7 +46,7 @@ Below you'll find an XML prompt with the instructions to the LLM. XML
 prompts generally lead to better results. 
 """
 
-promptTemplate = ChatPromptTemplate.from_template("""
+prompt_template = ChatPromptTemplate.from_template("""
 <Prompt>
   <Role>
     You are an AI facilitator for workplace learning groups. Engage dynamically in text-message style conversations, providing concise insights, follow-up questions, and occasional observations.
@@ -98,61 +96,57 @@ promptTemplate = ChatPromptTemplate.from_template("""
 </Prompt>
 """)
 
-
-
 """
 The response type will preliminarily be decided by the caller, 
-whether a message is calling generate answers with response_type="live" or 
-not. Not sure if this is the best way but I went with the first solution of 
+whether a message is calling generate_answers with response_type="live" or 
+not. Not sure if this is the best way but I went with the first solution off 
 the top of my head. 
 
 A bit hard to say if this is really the best solution at the moment, but I 
-figured we could atleast work off of this scaffold. Also, I have not implemented
+figured we could at least work off of this scaffold. Also, I have not implemented
 any error handling in the JSON parse, unsure if it's needed. 
 
 I think the WebSockets/Chat backend will handle the call to the LLM 
 whenever a user sends a message or if the chat is inactive for a while. 
 The summary can also be invoked with the press of a physical button such as 
-End Chat. """
+End Chat. 
+"""
 
-
-def generateAnswers(
+def generate_answers(
     conversation_history: List[dict],
     latest_message: str,
-    group_name: str, 
-    learning_topic: str, 
-    goal: str, 
+    group_name: str,
+    learning_topic: str,
+    goal: str,
     response_type: str
-    ) -> str: 
-    
-    
-    conversationHistory = "\n".join(f"{msg['sender']}: {msg['message']}" for msg in conversation_history)
-    
+) -> str:
+
+    conversation_history_str = "\n".join(
+        f"{msg['sender']}: {msg['message']}" for msg in conversation_history
+    )
+
     # Chain which will get a clean, generated LLM response
-    chain = promptTemplate | initLLM | StrOutputParser()
-    
-    
-    promptInput = {
-    "conversationHistory": conversationHistory, 
-    "groupName": group_name,
-    "learningTopic": learning_topic,
-    "goal": goal,
-    "message": latest_message
-}
-    
+    chain = prompt_template | init_llm | StrOutputParser()
+
+    prompt_input = {
+        "conversation_history": conversation_history_str,
+        "group_name": group_name,
+        "learning_topic": learning_topic,
+        "goal": goal,
+        "message": latest_message
+    }
+
     # Get JSON response as a string
-    response_str = chain.invoke(promptInput).strip()
+    response_str = chain.invoke(prompt_input).strip()
 
     # Strip markdown fences if present (just simple cleanup)
     response_str = response_str.strip()
     response_str = re.sub(r"^```(?:json)?\s*", "", response_str)
     response_str = re.sub(r"\s*```$", "", response_str)
 
-    #response_str should be valid JSON now, parse directly
-    parsedDict = json.loads(response_str)
-    modelClass = modelAnswer["LiveContribution"] if response_type == "live" else modelAnswer["Summary"]
-    structured_output = modelClass.model_validate(parsedDict)
+    # response_str should be valid JSON now, parse directly
+    parsed_dict = json.loads(response_str)
+    model_class = model_answer["LiveContribution"] if response_type == "live" else model_answer["Summary"]
+    structured_output = model_class.model_validate(parsed_dict)
 
-    
     return structured_output
-    
