@@ -1,17 +1,18 @@
-# Python
+# --- Python ---
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 
-# Virtual environment
+# --- Virtual Environments ---
 venv/
+.env/     
+.env      
 
-# Env files
-.env
-
-# IDE files
+# --- IDE / OS ---
 .vscode/
 *.swp
-
 .DS_Store
+
+# --- Credentials ---
+credentials/
